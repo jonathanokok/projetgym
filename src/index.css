@@ -66,5 +66,3 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
-.safe-area-top { height: env(safe-area-inset-top); }
-.safe-area-bottom { height: env(safe-area-inset-bottom); }
