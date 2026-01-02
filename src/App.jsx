@@ -1,19 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import {
-  Plus,
-  TrendingUp,
-  Calendar,
-  Dumbbell,
-  ChevronDown,
-  ChevronUp,
-  X,
-  Save,
-  Trash2,
-  Edit,
-  Download,
-  Upload,
-  Settings
-} from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, TrendingUp, Calendar, Dumbbell, ChevronDown, ChevronUp, X, Save, Trash2, Edit, Download, Upload, Settings } from 'lucide-react';
 
 const defaultWorkouts = {
   push: ['Bench Press', 'Overhead Press', 'Incline Dumbbell Press', 'Tricep Pushdown', 'Lateral Raise'],
@@ -32,7 +18,6 @@ export default function GymTracker() {
   const [editingCategoryName, setEditingCategoryName] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
-  // ---------- Load / Save ----------
   useEffect(() => {
     const saved = localStorage.getItem('gymWorkouts');
     const savedCustom = localStorage.getItem('customWorkouts');
@@ -41,37 +26,17 @@ export default function GymTracker() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('gymWorkouts', JSON.stringify(workouts));
+    if (workouts.length > 0) {
+      localStorage.setItem('gymWorkouts', JSON.stringify(workouts));
+    }
   }, [workouts]);
 
   useEffect(() => {
     localStorage.setItem('customWorkouts', JSON.stringify(customWorkouts));
   }, [customWorkouts]);
 
-  // ---------- Helpers ----------
-  const bodyPartIcons = useMemo(
-    () => ({
-      push: '💪',
-      pull: '🦾',
-      legs: '🦵',
-      chest: '💪',
-      back: '🦾',
-      shoulders: '🏋️',
-      arms: '💪',
-      abs: '🔥',
-      upper: '💪',
-      lower: '🦵',
-      fullbody: '🏋️',
-      cardio: '🏃'
-    }),
-    []
-  );
-
-  const getIcon = (category) => bodyPartIcons[(category || '').toLowerCase()] || '🏋️';
-
   const startWorkout = (bodyPart) => {
-    const list = customWorkouts[bodyPart] || [];
-    const exercises = list.map((name) => ({
+    const exercises = customWorkouts[bodyPart].map(name => ({
       id: Date.now() + Math.random(),
       name,
       sets: []
@@ -87,76 +52,73 @@ export default function GymTracker() {
   };
 
   const addSet = (exerciseId) => {
-    setCurrentWorkout((cw) => {
-      if (!cw) return cw;
-      return {
-        ...cw,
-        exercises: cw.exercises.map((ex) =>
-          ex.id === exerciseId ? { ...ex, sets: [...ex.sets, { weight: '', reps: '' }] } : ex
-        )
-      };
+    setCurrentWorkout({
+      ...currentWorkout,
+      exercises: currentWorkout.exercises.map(ex => 
+        ex.id === exerciseId 
+          ? { ...ex, sets: [...ex.sets, { weight: '', reps: '' }] }
+          : ex
+      )
     });
   };
 
   const updateSet = (exerciseId, setIndex, field, value) => {
-    setCurrentWorkout((cw) => {
-      if (!cw) return cw;
-      return {
-        ...cw,
-        exercises: cw.exercises.map((ex) =>
-          ex.id === exerciseId
-            ? {
-                ...ex,
-                sets: ex.sets.map((s, i) => (i === setIndex ? { ...s, [field]: value } : s))
-              }
-            : ex
-        )
-      };
+    setCurrentWorkout({
+      ...currentWorkout,
+      exercises: currentWorkout.exercises.map(ex =>
+        ex.id === exerciseId
+          ? {
+              ...ex,
+              sets: ex.sets.map((s, i) =>
+                i === setIndex ? { ...s, [field]: value } : s
+              )
+            }
+          : ex
+      )
     });
   };
 
   const removeSet = (exerciseId, setIndex) => {
-    setCurrentWorkout((cw) => {
-      if (!cw) return cw;
-      return {
-        ...cw,
-        exercises: cw.exercises.map((ex) =>
-          ex.id === exerciseId ? { ...ex, sets: ex.sets.filter((_, i) => i !== setIndex) } : ex
-        )
-      };
+    setCurrentWorkout({
+      ...currentWorkout,
+      exercises: currentWorkout.exercises.map(ex =>
+        ex.id === exerciseId
+          ? { ...ex, sets: ex.sets.filter((_, i) => i !== setIndex) }
+          : ex
+      )
     });
   };
 
   const saveWorkout = () => {
-    if (currentWorkout && currentWorkout.exercises.some((ex) => ex.sets.length > 0)) {
-      setWorkouts((prev) => [...prev, currentWorkout]);
+    if (currentWorkout.exercises.some(ex => ex.sets.length > 0)) {
+      setWorkouts([...workouts, currentWorkout]);
     }
     setCurrentWorkout(null);
     setView('home');
   };
 
   const deleteWorkout = (workoutId) => {
-    setWorkouts((prev) => prev.filter((w) => w.id !== workoutId));
+    setWorkouts(workouts.filter(w => w.id !== workoutId));
   };
 
   const getExerciseHistory = (exerciseName) => {
     return workouts
-      .filter((w) => w.exercises.some((e) => e.name === exerciseName))
-      .map((w) => ({
+      .filter(w => w.exercises.some(e => e.name === exerciseName))
+      .map(w => ({
         date: new Date(w.date).toLocaleDateString(),
-        sets: (w.exercises.find((e) => e.name === exerciseName) || { sets: [] }).sets
+        sets: w.exercises.find(e => e.name === exerciseName).sets
       }))
       .reverse();
   };
 
   const getPersonalBest = (exerciseName) => {
     let maxWeight = 0;
-    workouts.forEach((w) => {
-      w.exercises.forEach((ex) => {
+    workouts.forEach(w => {
+      w.exercises.forEach(ex => {
         if (ex.name === exerciseName) {
-          ex.sets.forEach((set) => {
+          ex.sets.forEach(set => {
             const weight = parseFloat(set.weight);
-            if (!Number.isNaN(weight) && weight > maxWeight) maxWeight = weight;
+            if (weight > maxWeight) maxWeight = weight;
           });
         }
       });
@@ -166,15 +128,15 @@ export default function GymTracker() {
 
   const getAllExercises = () => {
     const exercises = new Set();
-    workouts.forEach((w) => {
-      w.exercises.forEach((ex) => {
+    workouts.forEach(w => {
+      w.exercises.forEach(ex => {
         if (ex.sets.length > 0) exercises.add(ex.name);
       });
     });
     return Array.from(exercises);
   };
 
-  // ---------- Backup / Export ----------
+  // Export to JSON
   const exportToJSON = () => {
     const data = {
       workouts,
@@ -190,15 +152,16 @@ export default function GymTracker() {
     URL.revokeObjectURL(url);
   };
 
+  // Export to CSV (Excel/Google Sheets compatible)
   const exportToCSV = () => {
     let csv = 'Date,Time,Body Part,Exercise,Set Number,Weight (kg),Reps\n';
-
-    workouts.forEach((workout) => {
+    
+    workouts.forEach(workout => {
       const date = new Date(workout.date);
       const dateStr = date.toLocaleDateString();
       const timeStr = date.toLocaleTimeString();
-
-      workout.exercises.forEach((exercise) => {
+      
+      workout.exercises.forEach(exercise => {
         if (exercise.sets.length > 0) {
           exercise.sets.forEach((set, index) => {
             csv += `"${dateStr}","${timeStr}","${workout.bodyPart}","${exercise.name}",${index + 1},${set.weight},${set.reps}\n`;
@@ -216,11 +179,12 @@ export default function GymTracker() {
     URL.revokeObjectURL(url);
   };
 
+  // Export workout templates to CSV
   const exportTemplatesToCSV = () => {
     let csv = 'Body Part,Exercise\n';
-
-    Object.keys(customWorkouts).forEach((bodyPart) => {
-      (customWorkouts[bodyPart] || []).forEach((exercise) => {
+    
+    Object.keys(customWorkouts).forEach(bodyPart => {
+      customWorkouts[bodyPart].forEach(exercise => {
         csv += `"${bodyPart}","${exercise}"\n`;
       });
     });
@@ -234,48 +198,41 @@ export default function GymTracker() {
     URL.revokeObjectURL(url);
   };
 
+  // Copy to clipboard as text
   const copyToClipboard = () => {
     let text = '=== GYM TRACKER DATA ===\n\n';
-
-    workouts
-      .slice()
-      .reverse()
-      .forEach((workout) => {
-        const date = new Date(workout.date);
-        text += `📅 ${date.toLocaleDateString()} ${date.toLocaleTimeString()}\n`;
-        text += `🏋️ ${String(workout.bodyPart).toUpperCase()}\n\n`;
-
-        workout.exercises.forEach((exercise) => {
-          if (exercise.sets.length > 0) {
-            text += `  ${exercise.name}:\n`;
-            exercise.sets.forEach((set, i) => {
-              text += `    Set ${i + 1}: ${set.weight}kg × ${set.reps} reps\n`;
-            });
-            text += '\n';
-          }
-        });
-        text += '---\n\n';
+    
+    workouts.slice().reverse().forEach(workout => {
+      const date = new Date(workout.date);
+      text += `📅 ${date.toLocaleDateString()} ${date.toLocaleTimeString()}\n`;
+      text += `🏋️ ${workout.bodyPart.toUpperCase()}\n\n`;
+      
+      workout.exercises.forEach(exercise => {
+        if (exercise.sets.length > 0) {
+          text += `  ${exercise.name}:\n`;
+          exercise.sets.forEach((set, i) => {
+            text += `    Set ${i + 1}: ${set.weight}kg × ${set.reps} reps\n`;
+          });
+          text += '\n';
+        }
       });
+      text += '---\n\n';
+    });
 
-    navigator.clipboard
-      .writeText(text)
-      .then(() => alert('Data copied to clipboard!'))
-      .catch(() => alert('Clipboard permission denied.'));
+    navigator.clipboard.writeText(text).then(() => {
+      alert('Data copied to clipboard!');
+    });
   };
 
+  // Import from JSON
   const importFromJSON = (event) => {
-    const file = event.target.files?.[0];
+    const file = event.target.files[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        const raw = e.target?.result;
-        if (typeof raw !== 'string') {
-          alert('Error reading file');
-          return;
-        }
-        const data = JSON.parse(raw);
+        const data = JSON.parse(e.target.result);
         if (data.workouts && data.customWorkouts) {
           setWorkouts(data.workouts);
           setCustomWorkouts(data.customWorkouts);
@@ -283,28 +240,26 @@ export default function GymTracker() {
         } else {
           alert('Invalid file format');
         }
-      } catch {
+      } catch (error) {
         alert('Error reading file');
       }
     };
     reader.readAsText(file);
-
-    // allow re-importing same file
-    event.target.value = '';
   };
 
-  // ---------- Edit templates ----------
   const updateCustomWorkout = (bodyPart, exercises) => {
-    setCustomWorkouts((prev) => ({
-      ...prev,
+    setCustomWorkouts({
+      ...customWorkouts,
       [bodyPart]: exercises
-    }));
+    });
   };
 
   const addCategory = () => {
-    const key = newCategoryName.trim().toLowerCase();
-    if (key && !customWorkouts[key]) {
-      setCustomWorkouts((prev) => ({ ...prev, [key]: [] }));
+    if (newCategoryName.trim() && !customWorkouts[newCategoryName.toLowerCase()]) {
+      setCustomWorkouts({
+        ...customWorkouts,
+        [newCategoryName.toLowerCase()]: []
+      });
       setNewCategoryName('');
     }
   };
@@ -315,42 +270,51 @@ export default function GymTracker() {
       setDeleteConfirm(null);
       return;
     }
-    setCustomWorkouts((prev) => {
-      // eslint-disable-next-line no-unused-vars
-      const { [categoryName]: removed, ...rest } = prev;
-      return rest;
-    });
+    const { [categoryName]: removed, ...rest } = customWorkouts;
+    setCustomWorkouts(rest);
     setDeleteConfirm(null);
   };
 
   const renameCategory = (oldName, newName) => {
-    const next = newName.trim().toLowerCase();
-    if (!next || next === oldName || customWorkouts[next]) return;
-
-    setCustomWorkouts((prev) => {
-      const { [oldName]: exercises, ...rest } = prev;
-      return { ...rest, [next]: exercises };
-    });
-
-    setWorkouts((prev) => prev.map((w) => (w.bodyPart === oldName ? { ...w, bodyPart: next } : w)));
-    setEditingCategoryName(null);
+    if (newName.trim() && newName.toLowerCase() !== oldName && !customWorkouts[newName.toLowerCase()]) {
+      const { [oldName]: exercises, ...rest } = customWorkouts;
+      setCustomWorkouts({
+        ...rest,
+        [newName.toLowerCase()]: exercises
+      });
+      
+      // Update workouts history with new category name
+      setWorkouts(workouts.map(w => 
+        w.bodyPart === oldName ? { ...w, bodyPart: newName.toLowerCase() } : w
+      ));
+      
+      setEditingCategoryName(null);
+    }
   };
 
-  // ---------- Layout helpers ----------
-  const Screen = ({ children, pb = 'pb-8' }) => (
-    <div className={`min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-4 ${pb}`}>
-      <div className="safe-area-top"></div>
-      {children}
-      <div className="safe-area-bottom"></div>
-    </div>
-  );
+  const bodyPartIcons = {
+    push: '💪',
+    pull: '🦾',
+    legs: '🦵',
+    chest: '💪',
+    back: '🦾',
+    shoulders: '🏋️',
+    arms: '💪',
+    abs: '🔥',
+    upper: '💪',
+    lower: '🦵',
+    fullbody: '🏋️',
+    cardio: '🏃'
+  };
 
-  // -------------------------
-  // HOME
-  // -------------------------
+  const getIcon = (category) => {
+    return bodyPartIcons[category.toLowerCase()] || '🏋️';
+  };
+
+  // Home View
   if (view === 'home') {
     return (
-      <Screen pb="pb-8">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-4 pb-8">
         <div className="max-w-md mx-auto">
           <div className="flex items-center justify-center mb-8 pt-4">
             <Dumbbell className="w-8 h-8 mr-3 text-purple-400" />
@@ -368,9 +332,8 @@ export default function GymTracker() {
                 Edit
               </button>
             </h2>
-
             <div className="grid grid-cols-2 gap-3">
-              {Object.keys(customWorkouts).map((bodyPart) => (
+              {Object.keys(customWorkouts).map(bodyPart => (
                 <button
                   key={bodyPart}
                   onClick={() => startWorkout(bodyPart)}
@@ -378,7 +341,9 @@ export default function GymTracker() {
                 >
                   <div className="text-3xl mb-2">{getIcon(bodyPart)}</div>
                   <div className="font-semibold capitalize">{bodyPart}</div>
-                  <div className="text-xs text-gray-400 mt-1">{(customWorkouts[bodyPart] || []).length} exercises</div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    {customWorkouts[bodyPart].length} exercises
+                  </div>
                 </button>
               ))}
             </div>
@@ -393,7 +358,6 @@ export default function GymTracker() {
               <span className="font-semibold">History</span>
               <span className="text-sm text-gray-400">{workouts.length} workouts</span>
             </button>
-
             <button
               onClick={() => setView('progress')}
               className="bg-slate-800 p-4 rounded-xl flex flex-col items-center justify-center hover:bg-slate-700 transition-all"
@@ -418,15 +382,13 @@ export default function GymTracker() {
                 <Calendar className="w-5 h-5 mr-2" />
                 Recent Workouts
               </h2>
-
-              {workouts.slice(-3).reverse().map((workout) => (
+              {workouts.slice(-3).reverse().map(workout => (
                 <div key={workout.id} className="bg-slate-700 rounded-lg p-3 mb-2">
                   <div className="flex justify-between items-start">
                     <div>
                       <p className="font-semibold flex items-center">
                         <span className="mr-2">{getIcon(workout.bodyPart)}</span>
-                        {workout.bodyPart?.charAt(0)?.toUpperCase()}
-                        {workout.bodyPart?.slice(1)}
+                        {workout.bodyPart.charAt(0).toUpperCase() + workout.bodyPart.slice(1)}
                       </p>
                       <p className="text-sm text-gray-400">{new Date(workout.date).toLocaleDateString()}</p>
                     </div>
@@ -436,16 +398,14 @@ export default function GymTracker() {
             </div>
           )}
         </div>
-      </Screen>
+      </div>
     );
   }
 
-  // -------------------------
-  // EDIT WORKOUT TEMPLATES
-  // -------------------------
+  // Edit Workouts View
   if (view === 'edit-workouts') {
     return (
-      <Screen pb="pb-4">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-4">
         <div className="max-w-md mx-auto">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold">Edit Categories</h1>
@@ -462,18 +422,25 @@ export default function GymTracker() {
             </button>
           </div>
 
+          {/* Delete Confirmation Modal */}
           {deleteConfirm && (
             <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
               <div className="bg-slate-800 rounded-xl p-6 max-w-sm w-full">
                 <h2 className="text-xl font-bold mb-4">Delete Category?</h2>
                 <p className="text-gray-300 mb-6">
-                  Are you sure you want to delete &quot;{deleteConfirm}&quot;? This will remove the category and all its exercises.
+                  Are you sure you want to delete "{deleteConfirm}"? This will remove the category and all its exercises.
                 </p>
                 <div className="flex gap-3">
-                  <button onClick={() => setDeleteConfirm(null)} className="flex-1 bg-slate-700 py-3 rounded-lg font-semibold hover:bg-slate-600">
+                  <button
+                    onClick={() => setDeleteConfirm(null)}
+                    className="flex-1 bg-slate-700 py-3 rounded-lg font-semibold hover:bg-slate-600"
+                  >
                     Cancel
                   </button>
-                  <button onClick={() => deleteCategory(deleteConfirm)} className="flex-1 bg-red-600 py-3 rounded-lg font-semibold hover:bg-red-700">
+                  <button
+                    onClick={() => deleteCategory(deleteConfirm)}
+                    className="flex-1 bg-red-600 py-3 rounded-lg font-semibold hover:bg-red-700"
+                  >
                     Delete
                   </button>
                 </div>
@@ -489,16 +456,19 @@ export default function GymTracker() {
                 placeholder="Category name (e.g., Upper Body)"
                 value={newCategoryName}
                 onChange={(e) => setNewCategoryName(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && addCategory()}
+                onKeyPress={(e) => e.key === 'Enter' && addCategory()}
                 className="flex-1 bg-slate-700 rounded-lg px-4 py-2 text-white"
               />
-              <button onClick={addCategory} className="bg-purple-600 px-4 py-2 rounded-lg font-semibold hover:bg-purple-700">
+              <button
+                onClick={addCategory}
+                className="bg-purple-600 px-4 py-2 rounded-lg font-semibold hover:bg-purple-700"
+              >
                 <Plus className="w-5 h-5" />
               </button>
             </div>
           </div>
 
-          {Object.keys(customWorkouts).map((bodyPart) => (
+          {Object.keys(customWorkouts).map(bodyPart => (
             <div key={bodyPart} className="bg-slate-800 rounded-xl p-4 mb-4">
               <div className="flex justify-between items-center mb-3">
                 <button
@@ -506,13 +476,16 @@ export default function GymTracker() {
                   className="flex items-center flex-1"
                 >
                   <span className="text-2xl mr-3">{getIcon(bodyPart)}</span>
-
                   {editingCategoryName === bodyPart ? (
                     <input
                       type="text"
                       defaultValue={bodyPart}
                       onBlur={(e) => renameCategory(bodyPart, e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && renameCategory(bodyPart, e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          renameCategory(bodyPart, e.target.value);
+                        }
+                      }}
                       autoFocus
                       className="bg-slate-700 rounded px-2 py-1 text-white font-bold text-lg capitalize"
                       onClick={(e) => e.stopPropagation()}
@@ -520,10 +493,10 @@ export default function GymTracker() {
                   ) : (
                     <span className="font-bold text-lg capitalize">{bodyPart}</span>
                   )}
-
-                  <span className="ml-auto">{editingWorkout === bodyPart ? <ChevronUp /> : <ChevronDown />}</span>
+                  <span className="ml-auto">
+                    {editingWorkout === bodyPart ? <ChevronUp /> : <ChevronDown />}
+                  </span>
                 </button>
-
                 <div className="flex gap-2 ml-2">
                   <button
                     onClick={(e) => {
@@ -531,7 +504,6 @@ export default function GymTracker() {
                       setEditingCategoryName(bodyPart);
                     }}
                     className="text-blue-400 hover:text-blue-300"
-                    title="Rename"
                   >
                     <Edit className="w-5 h-5" />
                   </button>
@@ -541,7 +513,6 @@ export default function GymTracker() {
                       setDeleteConfirm(bodyPart);
                     }}
                     className="text-red-400 hover:text-red-300"
-                    title="Delete"
                   >
                     <Trash2 className="w-5 h-5" />
                   </button>
@@ -550,33 +521,33 @@ export default function GymTracker() {
 
               {editingWorkout === bodyPart && (
                 <div>
-                  {(customWorkouts[bodyPart] || []).map((exercise, i) => (
+                  {customWorkouts[bodyPart].map((exercise, i) => (
                     <div key={i} className="flex gap-2 mb-2 items-center bg-slate-700 rounded-lg p-2">
                       <input
                         type="text"
                         value={exercise}
                         onChange={(e) => {
-                          const next = [...(customWorkouts[bodyPart] || [])];
-                          next[i] = e.target.value;
-                          updateCustomWorkout(bodyPart, next);
+                          const newExercises = [...customWorkouts[bodyPart]];
+                          newExercises[i] = e.target.value;
+                          updateCustomWorkout(bodyPart, newExercises);
                         }}
                         className="flex-1 bg-slate-600 rounded px-3 py-2 text-white"
                       />
                       <button
                         onClick={() => {
-                          const next = (customWorkouts[bodyPart] || []).filter((_, idx) => idx !== i);
-                          updateCustomWorkout(bodyPart, next);
+                          const newExercises = customWorkouts[bodyPart].filter((_, idx) => idx !== i);
+                          updateCustomWorkout(bodyPart, newExercises);
                         }}
                         className="text-red-400 hover:text-red-300"
-                        title="Remove"
                       >
                         <X className="w-5 h-5" />
                       </button>
                     </div>
                   ))}
-
                   <button
-                    onClick={() => updateCustomWorkout(bodyPart, [...(customWorkouts[bodyPart] || []), 'New Exercise'])}
+                    onClick={() => {
+                      updateCustomWorkout(bodyPart, [...customWorkouts[bodyPart], 'New Exercise']);
+                    }}
                     className="w-full bg-slate-700 py-2 rounded-lg text-sm font-semibold mt-2 hover:bg-slate-600"
                   >
                     + Add Exercise
@@ -586,21 +557,14 @@ export default function GymTracker() {
             </div>
           ))}
         </div>
-      </Screen>
+      </div>
     );
   }
 
-  // -------------------------
-  // ACTIVE WORKOUT
-  // -------------------------
+  // Workout View
   if (view === 'workout') {
-    if (!currentWorkout) {
-      setView('home');
-      return null;
-    }
-
     return (
-      <Screen pb="pb-8">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-4 pb-8">
         <div className="max-w-md mx-auto">
           <div className="flex justify-between items-center mb-6">
             <div>
@@ -610,74 +574,70 @@ export default function GymTracker() {
               </h1>
               <p className="text-gray-400 text-sm">Active Workout</p>
             </div>
-
-            <button onClick={saveWorkout} className="bg-green-600 px-4 py-2 rounded-lg flex items-center font-semibold hover:bg-green-700">
+            <button
+              onClick={saveWorkout}
+              className="bg-green-600 px-4 py-2 rounded-lg flex items-center font-semibold hover:bg-green-700"
+            >
               <Save className="w-5 h-5 mr-2" />
               Finish
             </button>
           </div>
 
-          {currentWorkout.exercises.map((exercise) => (
+          {currentWorkout.exercises.map(exercise => (
             <div key={exercise.id} className="bg-slate-800 rounded-xl p-4 mb-4">
               <h3 className="font-bold text-lg mb-3">{exercise.name}</h3>
-
+              
               {exercise.sets.map((set, setIndex) => (
                 <div key={setIndex} className="flex gap-2 mb-2 items-center">
                   <span className="text-gray-400 w-8">{setIndex + 1}</span>
-
                   <input
                     type="number"
-                    inputMode="decimal"
                     placeholder="Weight"
                     value={set.weight}
                     onChange={(e) => updateSet(exercise.id, setIndex, 'weight', e.target.value)}
                     className="flex-1 bg-slate-700 rounded-lg px-3 py-2 text-white"
                   />
-
                   <span className="text-gray-400">×</span>
-
                   <input
                     type="number"
-                    inputMode="numeric"
                     placeholder="Reps"
                     value={set.reps}
                     onChange={(e) => updateSet(exercise.id, setIndex, 'reps', e.target.value)}
                     className="flex-1 bg-slate-700 rounded-lg px-3 py-2 text-white"
                   />
-
-                  <button onClick={() => removeSet(exercise.id, setIndex)} className="text-red-400 hover:text-red-300" title="Remove set">
+                  <button
+                    onClick={() => removeSet(exercise.id, setIndex)}
+                    className="text-red-400 hover:text-red-300"
+                  >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
               ))}
-
-              <button onClick={() => addSet(exercise.id)} className="w-full bg-slate-700 py-2 rounded-lg text-sm font-semibold mt-2 hover:bg-slate-600">
-                + Add Set
-              </button>
-
+              
               <button
-                onClick={() => setView('home')}
-                className="w-full bg-slate-800 border border-slate-700 py-2 rounded-lg text-sm font-semibold mt-3 hover:bg-slate-700"
+                onClick={() => addSet(exercise.id)}
+                className="w-full bg-slate-700 py-2 rounded-lg text-sm font-semibold mt-2 hover:bg-slate-600"
               >
-                Back to Home
+                + Add Set
               </button>
             </div>
           ))}
         </div>
-      </Screen>
+      </div>
     );
   }
 
-  // -------------------------
-  // HISTORY
-  // -------------------------
+  // History View
   if (view === 'history') {
     return (
-      <Screen pb="pb-4">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-4">
         <div className="max-w-md mx-auto">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold">Workout History</h1>
-            <button onClick={() => setView('home')} className="bg-slate-800 px-4 py-2 rounded-lg hover:bg-slate-700">
+            <button
+              onClick={() => setView('home')}
+              className="bg-slate-800 px-4 py-2 rounded-lg hover:bg-slate-700"
+            >
               Back
             </button>
           </div>
@@ -688,58 +648,56 @@ export default function GymTracker() {
               <p>No workouts yet. Start your first workout!</p>
             </div>
           ) : (
-            workouts
-              .slice()
-              .reverse()
-              .map((workout) => (
-                <div key={workout.id} className="bg-slate-800 rounded-xl p-4 mb-4">
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <p className="font-bold text-lg flex items-center">
-                        <span className="mr-2">{getIcon(workout.bodyPart)}</span>
-                        {workout.bodyPart.charAt(0).toUpperCase() + workout.bodyPart.slice(1)}
-                      </p>
-                      <p className="text-sm text-gray-400">{new Date(workout.date).toLocaleDateString()}</p>
-                      <p className="text-sm text-gray-400">{new Date(workout.date).toLocaleTimeString()}</p>
-                    </div>
-
-                    <button onClick={() => deleteWorkout(workout.id)} className="text-red-400 hover:text-red-300" title="Delete workout">
-                      <Trash2 className="w-5 h-5" />
-                    </button>
+            workouts.slice().reverse().map(workout => (
+              <div key={workout.id} className="bg-slate-800 rounded-xl p-4 mb-4">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <p className="font-bold text-lg flex items-center">
+                      <span className="mr-2">{getIcon(workout.bodyPart)}</span>
+                      {workout.bodyPart.charAt(0).toUpperCase() + workout.bodyPart.slice(1)}
+                    </p>
+                    <p className="text-sm text-gray-400">{new Date(workout.date).toLocaleDateString()}</p>
+                    <p className="text-sm text-gray-400">{new Date(workout.date).toLocaleTimeString()}</p>
                   </div>
-
-                  {workout.exercises
-                    .filter((ex) => ex.sets.length > 0)
-                    .map((exercise) => (
-                      <div key={exercise.id} className="bg-slate-700 rounded-lg p-3 mb-2">
-                        <p className="font-semibold mb-2">{exercise.name}</p>
-                        {exercise.sets.map((set, i) => (
-                          <p key={i} className="text-sm text-gray-300">
-                            Set {i + 1}: {set.weight}kg × {set.reps} reps
-                          </p>
-                        ))}
-                      </div>
-                    ))}
+                  <button
+                    onClick={() => deleteWorkout(workout.id)}
+                    className="text-red-400 hover:text-red-300"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
                 </div>
-              ))
+                
+                {workout.exercises.filter(ex => ex.sets.length > 0).map(exercise => (
+                  <div key={exercise.id} className="bg-slate-700 rounded-lg p-3 mb-2">
+                    <p className="font-semibold mb-2">{exercise.name}</p>
+                    {exercise.sets.map((set, i) => (
+                      <p key={i} className="text-sm text-gray-300">
+                        Set {i + 1}: {set.weight}kg × {set.reps} reps
+                      </p>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            ))
           )}
         </div>
-      </Screen>
+      </div>
     );
   }
 
-  // -------------------------
-  // PROGRESS
-  // -------------------------
+  // Progress View
   if (view === 'progress') {
     const allExercises = getAllExercises();
-
+    
     return (
-      <Screen pb="pb-4">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-4">
         <div className="max-w-md mx-auto">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold">Your Progress</h1>
-            <button onClick={() => setView('home')} className="bg-slate-800 px-4 py-2 rounded-lg hover:bg-slate-700">
+            <button
+              onClick={() => setView('home')}
+              className="bg-slate-800 px-4 py-2 rounded-lg hover:bg-slate-700"
+            >
               Back
             </button>
           </div>
@@ -758,11 +716,13 @@ export default function GymTracker() {
                 >
                   <div className="text-left">
                     <p className="font-bold text-lg">{exerciseName}</p>
-                    <p className="text-sm text-purple-400">Personal Best: {getPersonalBest(exerciseName)}kg</p>
+                    <p className="text-sm text-purple-400">
+                      Personal Best: {getPersonalBest(exerciseName)}kg
+                    </p>
                   </div>
                   {selectedExercise === exerciseName ? <ChevronUp /> : <ChevronDown />}
                 </button>
-
+                
                 {selectedExercise === exerciseName && (
                   <div className="mt-4 pt-4 border-t border-slate-700">
                     {getExerciseHistory(exerciseName).map((session, j) => (
@@ -781,20 +741,21 @@ export default function GymTracker() {
             ))
           )}
         </div>
-      </Screen>
+      </div>
     );
   }
 
-  // -------------------------
-  // SETTINGS / BACKUP
-  // -------------------------
+  // Settings/Backup View
   if (view === 'settings') {
     return (
-      <Screen pb="pb-4">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-4">
         <div className="max-w-md mx-auto">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold">Backup & Settings</h1>
-            <button onClick={() => setView('home')} className="bg-slate-800 px-4 py-2 rounded-lg hover:bg-slate-700">
+            <button
+              onClick={() => setView('home')}
+              className="bg-slate-800 px-4 py-2 rounded-lg hover:bg-slate-700"
+            >
               Back
             </button>
           </div>
@@ -804,7 +765,7 @@ export default function GymTracker() {
               <Download className="w-5 h-5 mr-2 text-green-400" />
               Export Data
             </h2>
-
+            
             <button
               onClick={exportToCSV}
               className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-semibold mb-3 flex items-center justify-center"
@@ -812,7 +773,7 @@ export default function GymTracker() {
               <Download className="w-5 h-5 mr-2" />
               Export Workout Data (CSV/Excel)
             </button>
-
+            
             <button
               onClick={exportTemplatesToCSV}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-semibold mb-3 flex items-center justify-center"
@@ -840,18 +801,10 @@ export default function GymTracker() {
             <div className="mt-4 p-3 bg-slate-700 rounded-lg text-sm text-gray-300">
               <p className="font-semibold mb-2">Export Options:</p>
               <ul className="space-y-1 text-xs">
-                <li>
-                  • <strong>CSV/Excel:</strong> Open in Google Sheets or Excel
-                </li>
-                <li>
-                  • <strong>Templates CSV:</strong> Your custom workout plans
-                </li>
-                <li>
-                  • <strong>JSON:</strong> Complete backup for re-importing
-                </li>
-                <li>
-                  • <strong>Clipboard:</strong> Quick text copy for notes
-                </li>
+                <li>• <strong>CSV/Excel:</strong> Open in Google Sheets or Excel</li>
+                <li>• <strong>Templates CSV:</strong> Your custom workout plans</li>
+                <li>• <strong>JSON:</strong> Complete backup for re-importing</li>
+                <li>• <strong>Clipboard:</strong> Quick text copy for notes</li>
               </ul>
             </div>
           </div>
@@ -861,11 +814,16 @@ export default function GymTracker() {
               <Upload className="w-5 h-5 mr-2 text-blue-400" />
               Import Data
             </h2>
-
+            
             <label className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-semibold flex items-center justify-center cursor-pointer">
               <Upload className="w-5 h-5 mr-2" />
               Import Backup (JSON)
-              <input type="file" accept=".json" onChange={importFromJSON} className="hidden" />
+              <input
+                type="file"
+                accept=".json"
+                onChange={importFromJSON}
+                className="hidden"
+              />
             </label>
 
             <div className="mt-4 p-3 bg-yellow-900 bg-opacity-30 border border-yellow-600 rounded-lg text-sm text-yellow-200">
@@ -874,9 +832,7 @@ export default function GymTracker() {
             </div>
           </div>
         </div>
-      </Screen>
+      </div>
     );
   }
-
-  return null;
 }
