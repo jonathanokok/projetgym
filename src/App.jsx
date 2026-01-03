@@ -6,10 +6,29 @@ const defaultWorkouts = {
   pull: ['Pull-ups', 'Barbell Row', 'Lat Pulldown', 'Barbell Curl', 'Face Pull'],
   legs: ['Squat', 'Leg Press', 'Romanian Deadlift', 'Leg Curl', 'Calf Raise']
 };
+const normalizeCustomWorkouts = (raw) => {
+  const src = raw || {};
+  const out = {};
+
+  Object.keys(src).forEach((cat) => {
+    const arr = Array.isArray(src[cat]) ? src[cat] : [];
+    out[cat] = arr
+      .map((item) => {
+        if (typeof item === 'string') return { name: item, note: '' };
+        if (item && typeof item === 'object') {
+          return { name: item.name ?? '', note: item.note ?? '' };
+        }
+        return null;
+      })
+      .filter((x) => x && x.name.trim());
+  });
+
+  return out;
+};
 
 export default function GymTracker() {
   const [workouts, setWorkouts] = useState([]);
-  const [customWorkouts, setCustomWorkouts] = useState(defaultWorkouts);
+  const [customWorkouts, setCustomWorkouts] = useState(normalizeCustomWorkouts(defaultWorkouts));
   const [currentWorkout, setCurrentWorkout] = useState(null);
   const [view, setView] = useState('home');
   const [selectedExercise, setSelectedExercise] = useState(null);
@@ -22,7 +41,7 @@ export default function GymTracker() {
     const saved = localStorage.getItem('gymWorkouts');
     const savedCustom = localStorage.getItem('customWorkouts');
     if (saved) setWorkouts(JSON.parse(saved));
-    if (savedCustom) setCustomWorkouts(JSON.parse(savedCustom));
+    if (savedCustom) setCustomWorkouts(normalizeCustomWorkouts(JSON.parse(savedCustom)));
   }, []);
 
   useEffect(() => {
@@ -36,9 +55,11 @@ export default function GymTracker() {
   }, [customWorkouts]);
 
   const startWorkout = (bodyPart) => {
-    const exercises = customWorkouts[bodyPart].map(name => ({
+    const list = customWorkouts[bodyPart] || [];
+    const exercises = list.map((item) => ({
       id: Date.now() + Math.random(),
-      name,
+      name: item?.name ?? '',
+      note: item?.note ?? '',
       sets: []
     }));
 
@@ -538,39 +559,73 @@ export default function GymTracker() {
 
               {editingWorkout === bodyPart && (
                 <div>
-                  {customWorkouts[bodyPart].map((exercise, i) => (
-                    <div key={i} className="flex gap-2 mb-2 items-center bg-slate-700 rounded-lg p-2">
-                      <input
-                        type="text"
-                        value={exercise}
+                  {(customWorkouts[bodyPart] || []).map((exercise, i) => (
+                    <div key={i} className="bg-slate-700 rounded-lg p-2 mb-2">
+        
+                      {/* Ligne 1 : Nom + bouton supprimer */}
+                      <div className="flex gap-2 items-center">
+                        <input
+                          type="text"
+                          value={exercise?.name ?? ''}
+                          onChange={(e) => {
+                            const newExercises = [...(customWorkouts[bodyPart] || [])];
+
+                            // On garde la note existante et on change seulement le name
+                            newExercises[i] = {
+                              ...(newExercises[i] || {}),
+                              name: e.target.value
+                            };
+
+                            updateCustomWorkout(bodyPart, newExercises);
+                          }}
+                          className="flex-1 bg-slate-600 rounded px-3 py-2 text-white"
+                        />
+
+                        <button
+                          onClick={() => {
+                            const newExercises = (customWorkouts[bodyPart] || []).filter((_, idx) => idx !== i);
+                            updateCustomWorkout(bodyPart, newExercises);
+                          }}
+                          className="text-red-400 hover:text-red-300"
+                          title="Remove"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+
+                      {/* Ligne 2 : Notes */}
+                      <textarea
+                        placeholder="Notes (ex: tempo 3-1-1, prise serrée, objectif 8-10 reps...)"
+                        value={exercise?.note ?? ''}
                         onChange={(e) => {
-                          const newExercises = [...customWorkouts[bodyPart]];
-                          newExercises[i] = e.target.value;
+                          const newExercises = [...(customWorkouts[bodyPart] || [])];
+
+                          // On garde le name existant et on change seulement la note
+                          newExercises[i] = {
+                            ...(newExercises[i] || {}),
+                            note: e.target.value
+                          };        
                           updateCustomWorkout(bodyPart, newExercises);
                         }}
-                        className="flex-1 bg-slate-600 rounded px-3 py-2 text-white"
+                        className="w-full mt-2 bg-slate-600 rounded px-3 py-2 text-white text-sm min-h-[60px]"
                       />
-                      <button
-                        onClick={() => {
-                          const newExercises = customWorkouts[bodyPart].filter((_, idx) => idx !== i);
-                          updateCustomWorkout(bodyPart, newExercises);
-                        }}
-                        className="text-red-400 hover:text-red-300"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
                     </div>
                   ))}
+                  {/* Bouton : ajouter un nouvel exercice */}
                   <button
                     onClick={() => {
-                      updateCustomWorkout(bodyPart, [...customWorkouts[bodyPart], 'New Exercise']);
+                      updateCustomWorkout(bodyPart, [
+                        ...(customWorkouts[bodyPart] || []),
+                        { name: 'New Exercise', note: '' }
+                      ]);
                     }}
-                    className="w-full bg-slate-700 py-2 rounded-lg text-sm font-semibold mt-2 hover:bg-slate-600"
-                  >
-                    + Add Exercise
-                  </button>
-                </div>
-              )}
+      className="w-full bg-slate-700 py-2 rounded-lg text-sm font-semibold mt-2 hover:bg-slate-600"
+    >
+      + Add Exercise
+    </button>
+  </div>
+)}
+
             </div>
           ))}
         </div>
@@ -612,6 +667,11 @@ export default function GymTracker() {
                       <p className="text-xs text-gray-300 mb-2">
                         Last time: {new Date(last.date).toLocaleDateString()}
                       </p>
+                      {exercise.note?.trim() ? (
+                        <p className="text-sm text-gray-100 mb-2">
+                          📝 {exercise.note}
+                        </p>
+                      ) : null}
 
                       <div className="space-y-1">
                         {last.sets.map((s, idx) => (
