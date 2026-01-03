@@ -219,11 +219,11 @@ export default function GymTracker() {
 
   // Export workout templates to CSV
   const exportTemplatesToCSV = () => {
-    let csv = 'Body Part,Exercise\n';
+    let csv = 'Body Part,Exercise,Note\n';
     
     Object.keys(customWorkouts).forEach(bodyPart => {
-      customWorkouts[bodyPart].forEach(exercise => {
-        csv += `"${bodyPart}","${exercise}"\n`;
+      (customWorkouts[bodyPart] || []).forEach((ex) => {
+        csv += `"${bodyPart}","${ex.name}","${(ex.note || '').replaceAll('"', '""')}"\n`;
       });
     });
 
