@@ -135,6 +135,23 @@ export default function GymTracker() {
     });
     return Array.from(exercises);
   };
+  // Returns the most recent sets logged for a given exercise name.
+  // If none exists, returns null.
+  const getLastLoggedSets = (exerciseName) => {
+    for (let i = workouts.length - 1; i >= 0; i--) {
+      const w = workouts[i];
+      const ex = w.exercises?.find(
+        (e) => e.name === exerciseName && (e.sets?.length ?? 0) > 0
+      );
+      if (ex) {
+        return {
+          date: w.date,
+          sets: ex.sets
+        };
+      }
+    }
+    return null;
+  };
 
   // Export to JSON
   const exportToJSON = () => {
