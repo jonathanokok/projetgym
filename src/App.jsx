@@ -603,7 +603,27 @@ export default function GymTracker() {
           {currentWorkout.exercises.map(exercise => (
             <div key={exercise.id} className="bg-slate-800 rounded-xl p-4 mb-4">
               <h3 className="font-bold text-lg mb-3">{exercise.name}</h3>
-              
+              {(() => {
+                const last = getLastLoggedSets(exercise.name);
+                if (!last) return null;
+
+                  return (
+                    <div className="mb-3 p-3 bg-slate-700 rounded-lg">
+                      <p className="text-xs text-gray-300 mb-2">
+                        Last time: {new Date(last.date).toLocaleDateString()}
+                      </p>
+
+                      <div className="space-y-1">
+                        {last.sets.map((s, idx) => (
+                          <p key={idx} className="text-sm text-gray-200">
+                            Set {idx + 1}: {s.weight}kg × {s.reps}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
               {exercise.sets.map((set, setIndex) => (
                 <div key={setIndex} className="flex gap-2 mb-2 items-center">
                   <span className="text-gray-400 w-8">{setIndex + 1}</span>
