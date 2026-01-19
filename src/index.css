@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+html,
+body {
+  width: 100%;
+  overflow-x: hidden;
+}
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
@@ -10,11 +16,44 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
+  min-height: 100dvh;
   background-color: #0f172a;
   background-image: linear-gradient(135deg, #0f172a, #4c1d95, #0f172a);
   background-attachment: fixed;
 }
 
-* {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
+}
+
+input,
+textarea,
+select,
+button {
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+}
+
+.set-row {
+  min-width: 0;
+}
+
+.set-input {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  font-size: 16px;
+  line-height: 1.2;
+  -webkit-text-size-adjust: 100%;
+  appearance: none;
+  -moz-appearance: textfield;
+}
+
+.set-input::-webkit-outer-spin-button,
+.set-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
