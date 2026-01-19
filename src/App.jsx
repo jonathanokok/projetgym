@@ -42,6 +42,18 @@ export default function GymTracker() {
     const savedCustom = localStorage.getItem('customWorkouts');
     if (saved) setWorkouts(JSON.parse(saved));
     if (savedCustom) setCustomWorkouts(normalizeCustomWorkouts(JSON.parse(savedCustom)));
+    const draft = localStorage.getItem('currentWorkoutDraft');
+
+    if (draft) {
+      try {
+        const parsed = JSON.parse(draft);
+        setCurrentWorkout(parsed);
+        setView('workout');
+      } catch {
+      localStorage.removeItem('currentWorkoutDraft');
+        localStorage.removeItem('currentWorkoutView');
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -53,6 +65,18 @@ export default function GymTracker() {
   useEffect(() => {
     localStorage.setItem('customWorkouts', JSON.stringify(customWorkouts));
   }, [customWorkouts]);
+  useEffect(() => {
+    if (currentWorkout) {
+      localStorage.setItem(
+        'currentWorkoutDraft',
+        JSON.stringify(currentWorkout)
+      );
+      localStorage.setItem('currentWorkoutView', 'workout');
+    } else {
+      localStorage.removeItem('currentWorkoutDraft');
+      localStorage.removeItem('currentWorkoutView');
+    }
+}, [currentWorkout]);
 
   const startWorkout = (bodyPart) => {
     const list = customWorkouts[bodyPart] || [];
@@ -114,6 +138,9 @@ export default function GymTracker() {
     if (currentWorkout.exercises.some(ex => ex.sets.length > 0)) {
       setWorkouts([...workouts, currentWorkout]);
     }
+    setCurrentWorkout(null);
+    localStorage.removeItem('currentWorkoutDraft');
+    localStorage.removeItem('currentWorkoutView');
     setCurrentWorkout(null);
     setView('home');
   };
