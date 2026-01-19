@@ -40,8 +40,20 @@ export default function GymTracker() {
   useEffect(() => {
     const saved = localStorage.getItem('gymWorkouts');
     const savedCustom = localStorage.getItem('customWorkouts');
-    if (saved) setWorkouts(JSON.parse(saved));
-    if (savedCustom) setCustomWorkouts(normalizeCustomWorkouts(JSON.parse(savedCustom)));
+    let parsedWorkouts = [];
+
+    if (saved) {
+      try {
+        parsedWorkouts = JSON.parse(saved);
+      } catch {
+        localStorage.removeItem('gymWorkouts');
+      }
+    }
+
+    if (savedCustom) {
+      setCustomWorkouts(normalizeCustomWorkouts(JSON.parse(savedCustom)));
+    }
+
     const draft = localStorage.getItem('currentWorkoutDraft');
 
     if (draft) {
@@ -49,17 +61,18 @@ export default function GymTracker() {
         const parsed = JSON.parse(draft);
         setCurrentWorkout(parsed);
         setView('workout');
+        parsedWorkouts = parsedWorkouts.filter((w) => w.id !== parsed.id);
       } catch {
-      localStorage.removeItem('currentWorkoutDraft');
+        localStorage.removeItem('currentWorkoutDraft');
         localStorage.removeItem('currentWorkoutView');
       }
     }
+
+    setWorkouts(parsedWorkouts);
   }, []);
 
   useEffect(() => {
-    if (workouts.length > 0) {
-      localStorage.setItem('gymWorkouts', JSON.stringify(workouts));
-    }
+    localStorage.setItem('gymWorkouts', JSON.stringify(workouts));
   }, [workouts]);
 
   useEffect(() => {
@@ -136,7 +149,8 @@ export default function GymTracker() {
 
   const saveWorkout = () => {
     if (currentWorkout.exercises.some(ex => ex.sets.length > 0)) {
-      setWorkouts([...workouts, currentWorkout]);
+      const updatedWorkouts = workouts.filter((workout) => workout.id !== currentWorkout.id);
+      setWorkouts([...updatedWorkouts, currentWorkout]);
     }
     setCurrentWorkout(null);
     localStorage.removeItem('currentWorkoutDraft');
