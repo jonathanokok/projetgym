@@ -726,14 +726,14 @@ export default function GymTracker() {
                 })()}
 
               {exercise.sets.map((set, setIndex) => (
-                <div key={setIndex} className="flex gap-2 mb-2 items-center">
+                <div key={setIndex} className="set-row flex gap-2 mb-2 items-center">
                   <span className="text-gray-400 w-8">{setIndex + 1}</span>
                   <input
                     type="number"
                     placeholder="Weight"
                     value={set.weight}
                     onChange={(e) => updateSet(exercise.id, setIndex, 'weight', e.target.value)}
-                    className="flex-1 bg-slate-700 rounded-lg px-3 py-2 text-white"
+                    className="set-input flex-1 bg-slate-700 rounded-lg px-3 py-2 text-white"
                   />
                   <span className="text-gray-400">×</span>
                   <input
@@ -741,7 +741,7 @@ export default function GymTracker() {
                     placeholder="Reps"
                     value={set.reps}
                     onChange={(e) => updateSet(exercise.id, setIndex, 'reps', e.target.value)}
-                    className="flex-1 bg-slate-700 rounded-lg px-3 py-2 text-white"
+                    className="set-input flex-1 bg-slate-700 rounded-lg px-3 py-2 text-white"
                   />
                   <button
                     onClick={() => removeSet(exercise.id, setIndex)}
