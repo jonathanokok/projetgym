@@ -581,7 +581,7 @@ export default function GymTracker() {
                       <div className="space-y-1">
                         {last.sets.map((s, idx) => (
                           <p key={idx} className="text-sm text-gray-200">
-                            Set {idx + 1}: {s.weight}kg
+                            Set {idx + 1}: {s.weight} × {s.reps} reps
                           </p>
                         ))}
                       </div>
