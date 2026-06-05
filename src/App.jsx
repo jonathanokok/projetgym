@@ -1,35 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, TrendingUp, Calendar, Dumbbell, ChevronDown, ChevronUp, X, Save, Trash2, Edit, Download, Upload, Settings, ArrowUp, ArrowDown } from 'lucide-react';
-
-const defaultWorkouts = {
-  push: ['Bench Press', 'Overhead Press', 'Incline Dumbbell Press', 'Tricep Pushdown', 'Lateral Raise'],
-  pull: ['Pull-ups', 'Barbell Row', 'Lat Pulldown', 'Barbell Curl', 'Face Pull'],
-  legs: ['Squat', 'Leg Press', 'Romanian Deadlift', 'Leg Curl', 'Calf Raise']
-};
-const normalizeCustomWorkouts = (raw) => {
-  const src = raw || {};
-  const out = {};
-
-  Object.keys(src).forEach((cat) => {
-    const arr = Array.isArray(src[cat]) ? src[cat] : [];
-    out[cat] = arr
-      .map((item) => {
-        if (typeof item === 'string') return { name: item, note: '' };
-        if (item && typeof item === 'object') {
-          return { name: item.name ?? '', note: item.note ?? '' };
-        }
-        return null;
-      })
-      .filter((x) => x && x.name.trim());
-  });
-
-  return out;
-};
+import { Plus, TrendingUp, Calendar, Dumbbell, ChevronDown, ChevronUp, X, Save, Trash2, Edit, Settings, ArrowUp, ArrowDown } from 'lucide-react';
+import ImportExportPanel from './components/ImportExportPanel';
+import { DEFAULT_CUSTOM_WORKOUTS, STORAGE_KEYS, loadFromStorage, saveToStorage } from './storage';
 
 export default function GymTracker() {
   const [workouts, setWorkouts] = useState([]);
-  const [customWorkouts, setCustomWorkouts] = useState(normalizeCustomWorkouts(defaultWorkouts));
+  const [customWorkouts, setCustomWorkouts] = useState(DEFAULT_CUSTOM_WORKOUTS);
   const [currentWorkout, setCurrentWorkout] = useState(null);
+  const [lastWorkoutSession, setLastWorkoutSession] = useState(null);
   const [view, setView] = useState('home');
   const [selectedExercise, setSelectedExercise] = useState(null);
   const [editingWorkout, setEditingWorkout] = useState(null);
@@ -39,57 +17,49 @@ export default function GymTracker() {
   const [editingExercise, setEditingExercise] = useState(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem('gymWorkouts');
-    const savedCustom = localStorage.getItem('customWorkouts');
-    if (saved) setWorkouts(JSON.parse(saved));
-    if (savedCustom) setCustomWorkouts(normalizeCustomWorkouts(JSON.parse(savedCustom)));
-    const draft = localStorage.getItem('currentWorkoutDraft');
+    const stored = loadFromStorage();
+    let parsedWorkouts = stored.workouts;
 
-    if (draft) {
-      try {
-        const parsed = JSON.parse(draft);
-        setCurrentWorkout(parsed);
-        setView('workout');
-      } catch {
-      localStorage.removeItem('currentWorkoutDraft');
-        localStorage.removeItem('currentWorkoutView');
-      }
+    if (stored.currentWorkout) {
+      setCurrentWorkout(stored.currentWorkout);
+      setView('workout');
+      parsedWorkouts = parsedWorkouts.filter((w) => w.id !== stored.currentWorkout.id);
     }
+
+    setWorkouts(parsedWorkouts);
+    setCustomWorkouts(stored.customWorkouts);
+    setLastWorkoutSession(stored.lastWorkoutSession);
   }, []);
 
   useEffect(() => {
-    if (workouts.length > 0) {
-      localStorage.setItem('gymWorkouts', JSON.stringify(workouts));
-    }
-  }, [workouts]);
-
-  useEffect(() => {
-    localStorage.setItem('customWorkouts', JSON.stringify(customWorkouts));
-  }, [customWorkouts]);
+    saveToStorage({ workouts, customWorkouts, lastWorkoutSession });
+  }, [workouts, customWorkouts, lastWorkoutSession]);
   useEffect(() => {
     if (currentWorkout) {
       localStorage.setItem(
-        'currentWorkoutDraft',
+        STORAGE_KEYS.currentWorkoutDraft,
         JSON.stringify(currentWorkout)
       );
-      localStorage.setItem('currentWorkoutView', 'workout');
+      localStorage.setItem(STORAGE_KEYS.currentWorkoutView, 'workout');
     } else {
-      localStorage.removeItem('currentWorkoutDraft');
-      localStorage.removeItem('currentWorkoutView');
+      localStorage.removeItem(STORAGE_KEYS.currentWorkoutDraft);
+      localStorage.removeItem(STORAGE_KEYS.currentWorkoutView);
     }
-}, [currentWorkout]);
+  }, [currentWorkout]);
+
+  const createId = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
   const startWorkout = (bodyPart) => {
     const list = customWorkouts[bodyPart] || [];
     const exercises = list.map((item) => ({
-      id: Date.now() + Math.random(),
+      id: createId(),
       name: item?.name ?? '',
       note: item?.note ?? '',
       sets: []
     }));
 
     setCurrentWorkout({
-      id: Date.now(),
+      id: createId(),
       date: new Date().toISOString(),
       bodyPart,
       exercises
@@ -137,17 +107,22 @@ export default function GymTracker() {
 
   const saveWorkout = () => {
     if (currentWorkout.exercises.some(ex => ex.sets.length > 0)) {
-      setWorkouts([...workouts, currentWorkout]);
+      const updatedWorkouts = workouts.filter((workout) => workout.id !== currentWorkout.id);
+      setWorkouts([...updatedWorkouts, currentWorkout]);
+      setLastWorkoutSession(currentWorkout);
     }
     setCurrentWorkout(null);
-    localStorage.removeItem('currentWorkoutDraft');
-    localStorage.removeItem('currentWorkoutView');
-    setCurrentWorkout(null);
+    localStorage.removeItem(STORAGE_KEYS.currentWorkoutDraft);
+    localStorage.removeItem(STORAGE_KEYS.currentWorkoutView);
     setView('home');
   };
 
   const deleteWorkout = (workoutId) => {
-    setWorkouts(workouts.filter(w => w.id !== workoutId));
+    const updatedWorkouts = workouts.filter(w => w.id !== workoutId);
+    setWorkouts(updatedWorkouts);
+    if (lastWorkoutSession?.id === workoutId) {
+      setLastWorkoutSession(updatedWorkouts[updatedWorkouts.length - 1] ?? null);
+    }
   };
 
   const getExerciseHistory = (exerciseName) => {
@@ -202,115 +177,14 @@ export default function GymTracker() {
     return null;
   };
 
-  // Export to JSON
-  const exportToJSON = () => {
-    const data = {
-      workouts,
-      customWorkouts,
-      exportDate: new Date().toISOString()
-    };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `gym-tracker-backup-${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  // Export to CSV (Excel/Google Sheets compatible)
-  const exportToCSV = () => {
-    let csv = 'Date,Time,Body Part,Exercise,Set Number,Weight (kg),Reps\n';
-    
-    workouts.forEach(workout => {
-      const date = new Date(workout.date);
-      const dateStr = date.toLocaleDateString();
-      const timeStr = date.toLocaleTimeString();
-      
-      workout.exercises.forEach(exercise => {
-        if (exercise.sets.length > 0) {
-          exercise.sets.forEach((set, index) => {
-            csv += `"${dateStr}","${timeStr}","${workout.bodyPart}","${exercise.name}",${index + 1},${set.weight},${set.reps}\n`;
-          });
-        }
-      });
-    });
-
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `gym-tracker-data-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  // Export workout templates to CSV
-  const exportTemplatesToCSV = () => {
-    let csv = 'Body Part,Exercise,Note\n';
-    
-    Object.keys(customWorkouts).forEach(bodyPart => {
-      (customWorkouts[bodyPart] || []).forEach((ex) => {
-        csv += `"${bodyPart}","${ex.name}","${(ex.note || '').replaceAll('"', '""')}"\n`;
-      });
-    });
-
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `gym-tracker-templates-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  // Copy to clipboard as text
-  const copyToClipboard = () => {
-    let text = '=== GYM TRACKER DATA ===\n\n';
-    
-    workouts.slice().reverse().forEach(workout => {
-      const date = new Date(workout.date);
-      text += `📅 ${date.toLocaleDateString()} ${date.toLocaleTimeString()}\n`;
-      text += `🏋️ ${workout.bodyPart.toUpperCase()}\n\n`;
-      
-      workout.exercises.forEach(exercise => {
-        if (exercise.sets.length > 0) {
-          text += `  ${exercise.name}:\n`;
-          exercise.sets.forEach((set, i) => {
-            text += `    Set ${i + 1}: ${set.weight}kg × ${set.reps} reps\n`;
-          });
-          text += '\n';
-        }
-      });
-      text += '---\n\n';
-    });
-
-    navigator.clipboard.writeText(text).then(() => {
-      alert('Data copied to clipboard!');
-    });
-  };
-
-  // Import from JSON
-  const importFromJSON = (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = JSON.parse(e.target.result);
-        if (data.workouts && data.customWorkouts) {
-          setWorkouts(data.workouts);
-          setCustomWorkouts(data.customWorkouts);
-          alert('Data imported successfully!');
-        } else {
-          alert('Invalid file format');
-        }
-      } catch (error) {
-        alert('Error reading file');
-      }
-    };
-    reader.readAsText(file);
+  const handleApplyImport = (importState) => {
+    setWorkouts(importState.workouts);
+    setCustomWorkouts(importState.customWorkouts);
+    setLastWorkoutSession(importState.lastWorkoutSession);
+    setCurrentWorkout(null);
+    localStorage.removeItem(STORAGE_KEYS.currentWorkoutDraft);
+    localStorage.removeItem(STORAGE_KEYS.currentWorkoutView);
+    setView('home');
   };
 
   const updateCustomWorkout = (bodyPart, exercises) => {
@@ -353,6 +227,10 @@ export default function GymTracker() {
       setWorkouts(workouts.map(w => 
         w.bodyPart === oldName ? { ...w, bodyPart: newName.toLowerCase() } : w
       ));
+
+      if (lastWorkoutSession?.bodyPart === oldName) {
+        setLastWorkoutSession({ ...lastWorkoutSession, bodyPart: newName.toLowerCase() });
+      }
       
       setEditingCategoryName(null);
     }
@@ -813,7 +691,7 @@ export default function GymTracker() {
                       <div className="space-y-1">
                         {last.sets.map((s, idx) => (
                           <p key={idx} className="text-sm text-gray-200">
-                            Set {idx + 1}: {s.weight}kg
+                            Set {idx + 1}: {s.weight} × {s.reps} reps
                           </p>
                         ))}
                       </div>
@@ -822,14 +700,14 @@ export default function GymTracker() {
                 })()}
 
               {exercise.sets.map((set, setIndex) => (
-                <div key={setIndex} className="flex gap-2 mb-2 items-center">
+                <div key={setIndex} className="set-row flex gap-2 mb-2 items-center">
                   <span className="text-gray-400 w-8">{setIndex + 1}</span>
                   <input
                     type="number"
                     placeholder="Weight"
                     value={set.weight}
                     onChange={(e) => updateSet(exercise.id, setIndex, 'weight', e.target.value)}
-                    className="flex-1 bg-slate-700 rounded-lg px-3 py-2 text-white"
+                    className="set-input flex-1 bg-slate-700 rounded-lg px-3 py-2 text-white"
                   />
                   <span className="text-gray-400">×</span>
                   <input
@@ -837,7 +715,7 @@ export default function GymTracker() {
                     placeholder="Reps"
                     value={set.reps}
                     onChange={(e) => updateSet(exercise.id, setIndex, 'reps', e.target.value)}
-                    className="flex-1 bg-slate-700 rounded-lg px-3 py-2 text-white"
+                    className="set-input flex-1 bg-slate-700 rounded-lg px-3 py-2 text-white"
                   />
                   <button
                     onClick={() => removeSet(exercise.id, setIndex)}
@@ -994,77 +872,10 @@ export default function GymTracker() {
             </button>
           </div>
 
-          <div className="bg-slate-800 rounded-xl p-4 mb-4">
-            <h2 className="text-lg font-semibold mb-4 flex items-center">
-              <Download className="w-5 h-5 mr-2 text-green-400" />
-              Export Data
-            </h2>
-            
-            <button
-              onClick={exportToCSV}
-              className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-semibold mb-3 flex items-center justify-center"
-            >
-              <Download className="w-5 h-5 mr-2" />
-              Export Workout Data (CSV/Excel)
-            </button>
-            
-            <button
-              onClick={exportTemplatesToCSV}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-semibold mb-3 flex items-center justify-center"
-            >
-              <Download className="w-5 h-5 mr-2" />
-              Export Workout Templates (CSV)
-            </button>
-
-            <button
-              onClick={exportToJSON}
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-lg font-semibold mb-3 flex items-center justify-center"
-            >
-              <Download className="w-5 h-5 mr-2" />
-              Export Full Backup (JSON)
-            </button>
-
-            <button
-              onClick={copyToClipboard}
-              className="w-full bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-lg font-semibold flex items-center justify-center"
-            >
-              <Download className="w-5 h-5 mr-2" />
-              Copy to Clipboard (Text)
-            </button>
-
-            <div className="mt-4 p-3 bg-slate-700 rounded-lg text-sm text-gray-300">
-              <p className="font-semibold mb-2">Export Options:</p>
-              <ul className="space-y-1 text-xs">
-                <li>• <strong>CSV/Excel:</strong> Open in Google Sheets or Excel</li>
-                <li>• <strong>Templates CSV:</strong> Your custom workout plans</li>
-                <li>• <strong>JSON:</strong> Complete backup for re-importing</li>
-                <li>• <strong>Clipboard:</strong> Quick text copy for notes</li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="bg-slate-800 rounded-xl p-4">
-            <h2 className="text-lg font-semibold mb-4 flex items-center">
-              <Upload className="w-5 h-5 mr-2 text-blue-400" />
-              Import Data
-            </h2>
-            
-            <label className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-semibold flex items-center justify-center cursor-pointer">
-              <Upload className="w-5 h-5 mr-2" />
-              Import Backup (JSON)
-              <input
-                type="file"
-                accept=".json"
-                onChange={importFromJSON}
-                className="hidden"
-              />
-            </label>
-
-            <div className="mt-4 p-3 bg-yellow-900 bg-opacity-30 border border-yellow-600 rounded-lg text-sm text-yellow-200">
-              <p className="font-semibold mb-1">⚠️ Warning</p>
-              <p className="text-xs">Importing will replace all current data. Export a backup first!</p>
-            </div>
-          </div>
+          <ImportExportPanel
+            state={{ workouts, customWorkouts, lastWorkoutSession }}
+            onApplyImport={handleApplyImport}
+          />
         </div>
       </div>
     );
