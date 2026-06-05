@@ -273,21 +273,7 @@ export default function GymTracker() {
     updateCustomWorkout(bodyPart, list);
   };
 
-  const moveExerciseInActiveWorkout = (index, direction) => {
-    if (!currentWorkout) return;
-    const list = [...currentWorkout.exercises];
-    const newIndex = direction === 'up' ? index - 1 : index + 1;
-    if (newIndex < 0 || newIndex >= list.length) return;
 
-    const temp = list[index];
-    list[index] = list[newIndex];
-    list[newIndex] = temp;
-
-    setCurrentWorkout({
-      ...currentWorkout,
-      exercises: list
-    });
-  };
 
   const bodyPartIcons = {
     push: '💪',
@@ -650,29 +636,9 @@ export default function GymTracker() {
             </button>
           </div>
 
-          {currentWorkout.exercises.map((exercise, index) => (
+          {currentWorkout.exercises.map(exercise => (
             <div key={exercise.id} className="bg-slate-800 rounded-xl p-4 mb-4">
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="font-bold text-lg">{exercise.name}</h3>
-                <div className="flex gap-1">
-                  <button
-                    disabled={index === 0}
-                    onClick={() => moveExerciseInActiveWorkout(index, 'up')}
-                    className="p-1 text-gray-400 hover:text-white bg-slate-700 hover:bg-slate-600 rounded disabled:opacity-30 disabled:hover:text-gray-400 disabled:hover:bg-slate-700 transition-colors"
-                    title="Move Up"
-                  >
-                    <ArrowUp className="w-4 h-4" />
-                  </button>
-                  <button
-                    disabled={index === currentWorkout.exercises.length - 1}
-                    onClick={() => moveExerciseInActiveWorkout(index, 'down')}
-                    className="p-1 text-gray-400 hover:text-white bg-slate-700 hover:bg-slate-600 rounded disabled:opacity-30 disabled:hover:text-gray-400 disabled:hover:bg-slate-700 transition-colors"
-                    title="Move Down"
-                  >
-                    <ArrowDown className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
+              <h3 className="font-bold text-lg mb-3">{exercise.name}</h3>
               {(() => {
                 const last = getLastLoggedSets(exercise.name);
                 if (!last) return null;
