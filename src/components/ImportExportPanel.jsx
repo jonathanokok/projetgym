@@ -19,6 +19,9 @@ export default function ImportExportPanel({ state, onApplyImport }) {
   const [importError, setImportError] = useState('');
   const [importSuccess, setImportSuccess] = useState('');
 
+  const workouts = state?.workouts ?? [];
+  const customWorkouts = state?.customWorkouts ?? {};
+
   const handleExport = () => {
     const payload = buildExportPayload(state);
     const dateStamp = new Date().toISOString().split('T')[0];
@@ -29,6 +32,75 @@ export default function ImportExportPanel({ state, onApplyImport }) {
     link.download = `gym-tracker-export-${dateStamp}.json`;
     link.click();
     URL.revokeObjectURL(url);
+  };
+
+  const exportToCSV = () => {
+    let csv = 'Date,Time,Body Part,Exercise,Set Number,Weight (kg),Reps\n';
+    
+    workouts.forEach(workout => {
+      const date = new Date(workout.date);
+      const dateStr = date.toLocaleDateString();
+      const timeStr = date.toLocaleTimeString();
+      
+      workout.exercises.forEach(exercise => {
+        if (exercise.sets.length > 0) {
+          exercise.sets.forEach((set, index) => {
+            csv += `"${dateStr}","${timeStr}","${workout.bodyPart}","${exercise.name}",${index + 1},${set.weight},${set.reps}\n`;
+          });
+        }
+      });
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `gym-tracker-data-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportTemplatesToCSV = () => {
+    let csv = 'Body Part,Exercise,Note\n';
+    
+    Object.keys(customWorkouts).forEach(bodyPart => {
+      (customWorkouts[bodyPart] || []).forEach((ex) => {
+        csv += `"${bodyPart}","${ex.name}","${(ex.note || '').replaceAll('"', '""')}"\n`;
+      });
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `gym-tracker-templates-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const copyToClipboard = () => {
+    let text = '=== GYM TRACKER DATA ===\n\n';
+    
+    workouts.slice().reverse().forEach(workout => {
+      const date = new Date(workout.date);
+      text += `📅 ${date.toLocaleDateString()} ${date.toLocaleTimeString()}\n`;
+      text += `🏋️ ${workout.bodyPart.toUpperCase()}\n\n`;
+      
+      workout.exercises.forEach(exercise => {
+        if (exercise.sets.length > 0) {
+          text += `  ${exercise.name}:\n`;
+          exercise.sets.forEach((set, i) => {
+            text += `    Set ${i + 1}: ${set.weight}kg × ${set.reps} reps\n`;
+          });
+          text += '\n';
+        }
+      });
+      text += '---\n\n';
+    });
+
+    navigator.clipboard.writeText(text).then(() => {
+      alert('Data copied to clipboard!');
+    });
   };
 
   const handleFileChange = async (event) => {
@@ -79,20 +151,47 @@ export default function ImportExportPanel({ state, onApplyImport }) {
         Export & Import
       </h2>
 
-      <button
-        onClick={handleExport}
-        className="w-full bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-lg font-semibold mb-4 flex items-center justify-center"
-      >
-        <Download className="w-5 h-5 mr-2" />
-        Export Full Backup (JSON)
-      </button>
+      <div className="space-y-3 mb-4">
+        <button
+          onClick={exportToCSV}
+          className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-semibold flex items-center justify-center"
+        >
+          <Download className="w-5 h-5 mr-2" />
+          Export Workout Data (CSV/Excel)
+        </button>
+
+        <button
+          onClick={exportTemplatesToCSV}
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-semibold flex items-center justify-center"
+        >
+          <Download className="w-5 h-5 mr-2" />
+          Export Workout Templates (CSV)
+        </button>
+
+        <button
+          onClick={handleExport}
+          className="w-full bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-lg font-semibold flex items-center justify-center"
+        >
+          <Download className="w-5 h-5 mr-2" />
+          Export Full Backup (JSON)
+        </button>
+
+        <button
+          onClick={copyToClipboard}
+          className="w-full bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-lg font-semibold flex items-center justify-center"
+        >
+          <Download className="w-5 h-5 mr-2" />
+          Copy to Clipboard (Text)
+        </button>
+      </div>
 
       <div className="bg-slate-700 rounded-lg p-3 text-xs text-gray-300 mb-4">
-        <p className="font-semibold mb-2">Export includes:</p>
-        <ul className="space-y-1">
-          <li>• All categories, exercises, sets, and notes</li>
-          <li>• Last workout session metadata</li>
-          <li>• Schema version for future compatibility</li>
+        <p className="font-semibold mb-2">Export Options:</p>
+        <ul className="space-y-1 text-xs">
+          <li>• <strong>CSV/Excel:</strong> Open in Google Sheets or Excel</li>
+          <li>• <strong>Templates CSV:</strong> Your custom workout plans</li>
+          <li>• <strong>JSON:</strong> Complete backup for re-importing</li>
+          <li>• <strong>Clipboard:</strong> Quick text copy for notes</li>
         </ul>
       </div>
 
