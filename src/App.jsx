@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, TrendingUp, Calendar, Dumbbell, ChevronDown, ChevronUp, X, Save, Trash2, Edit, Download, Upload, Settings } from 'lucide-react';
+import { Plus, TrendingUp, Calendar, Dumbbell, ChevronDown, ChevronUp, X, Save, Trash2, Edit, Download, Upload, Settings, ArrowUp, ArrowDown } from 'lucide-react';
 
 const defaultWorkouts = {
   push: ['Bench Press', 'Overhead Press', 'Incline Dumbbell Press', 'Tricep Pushdown', 'Lateral Raise'],
@@ -36,6 +36,7 @@ export default function GymTracker() {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [editingCategoryName, setEditingCategoryName] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [editingExercise, setEditingExercise] = useState(null);
 
   useEffect(() => {
     const saved = localStorage.getItem('gymWorkouts');
@@ -357,6 +358,59 @@ export default function GymTracker() {
     }
   };
 
+  const renameExerciseInHistory = (oldName, newName) => {
+    if (!oldName || !newName || oldName.trim() === newName.trim()) return;
+    const trimmedNew = newName.trim();
+
+    // Update workouts history
+    setWorkouts(prevWorkouts =>
+      prevWorkouts.map(w => ({
+        ...w,
+        exercises: w.exercises.map(ex =>
+          ex.name === oldName ? { ...ex, name: trimmedNew } : ex
+        )
+      }))
+    );
+
+    // Update active workout if one is active
+    if (currentWorkout) {
+      setCurrentWorkout(prevCurrent => ({
+        ...prevCurrent,
+        exercises: prevCurrent.exercises.map(ex =>
+          ex.name === oldName ? { ...ex, name: trimmedNew } : ex
+        )
+      }));
+    }
+  };
+
+  const moveExerciseInTemplate = (bodyPart, index, direction) => {
+    const list = [...(customWorkouts[bodyPart] || [])];
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= list.length) return;
+
+    const temp = list[index];
+    list[index] = list[newIndex];
+    list[newIndex] = temp;
+
+    updateCustomWorkout(bodyPart, list);
+  };
+
+  const moveExerciseInActiveWorkout = (index, direction) => {
+    if (!currentWorkout) return;
+    const list = [...currentWorkout.exercises];
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= list.length) return;
+
+    const temp = list[index];
+    list[index] = list[newIndex];
+    list[newIndex] = temp;
+
+    setCurrentWorkout({
+      ...currentWorkout,
+      exercises: list
+    });
+  };
+
   const bodyPartIcons = {
     push: '💪',
     pull: '🦾',
@@ -589,11 +643,47 @@ export default function GymTracker() {
                   {(customWorkouts[bodyPart] || []).map((exercise, i) => (
                     <div key={i} className="bg-slate-700 rounded-lg p-2 mb-2">
         
-                      {/* Ligne 1 : Nom + bouton supprimer */}
+                      {/* Ligne 1 : Nom + bouton reorder + bouton supprimer */}
                       <div className="flex gap-2 items-center">
+                        <div className="flex flex-col gap-0.5">
+                          <button
+                            disabled={i === 0}
+                            onClick={() => moveExerciseInTemplate(bodyPart, i, 'up')}
+                            className="text-gray-400 hover:text-white disabled:opacity-20 disabled:hover:text-gray-400 transition-colors"
+                            title="Move Up"
+                          >
+                            <ArrowUp className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            disabled={i === (customWorkouts[bodyPart] || []).length - 1}
+                            onClick={() => moveExerciseInTemplate(bodyPart, i, 'down')}
+                            className="text-gray-400 hover:text-white disabled:opacity-20 disabled:hover:text-gray-400 transition-colors"
+                            title="Move Down"
+                          >
+                            <ArrowDown className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                         <input
                           type="text"
                           value={exercise?.name ?? ''}
+                          onFocus={() => {
+                            setEditingExercise({
+                              bodyPart,
+                              index: i,
+                              originalName: exercise.name
+                            });
+                          }}
+                          onBlur={(e) => {
+                            if (editingExercise && editingExercise.originalName !== e.target.value) {
+                              renameExerciseInHistory(editingExercise.originalName, e.target.value);
+                            }
+                            setEditingExercise(null);
+                          }}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              e.target.blur();
+                            }
+                          }}
                           onChange={(e) => {
                             const newExercises = [...(customWorkouts[bodyPart] || [])];
 
@@ -682,9 +772,29 @@ export default function GymTracker() {
             </button>
           </div>
 
-          {currentWorkout.exercises.map(exercise => (
+          {currentWorkout.exercises.map((exercise, index) => (
             <div key={exercise.id} className="bg-slate-800 rounded-xl p-4 mb-4">
-              <h3 className="font-bold text-lg mb-3">{exercise.name}</h3>
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="font-bold text-lg">{exercise.name}</h3>
+                <div className="flex gap-1">
+                  <button
+                    disabled={index === 0}
+                    onClick={() => moveExerciseInActiveWorkout(index, 'up')}
+                    className="p-1 text-gray-400 hover:text-white bg-slate-700 hover:bg-slate-600 rounded disabled:opacity-30 disabled:hover:text-gray-400 disabled:hover:bg-slate-700 transition-colors"
+                    title="Move Up"
+                  >
+                    <ArrowUp className="w-4 h-4" />
+                  </button>
+                  <button
+                    disabled={index === currentWorkout.exercises.length - 1}
+                    onClick={() => moveExerciseInActiveWorkout(index, 'down')}
+                    className="p-1 text-gray-400 hover:text-white bg-slate-700 hover:bg-slate-600 rounded disabled:opacity-30 disabled:hover:text-gray-400 disabled:hover:bg-slate-700 transition-colors"
+                    title="Move Down"
+                  >
+                    <ArrowDown className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
               {(() => {
                 const last = getLastLoggedSets(exercise.name);
                 if (!last) return null;
